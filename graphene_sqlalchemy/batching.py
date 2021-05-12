@@ -69,7 +69,10 @@ def get_batch_resolver(relationship_prop):
                 session.query(parent_mapper.entity),
                 type(session),
             )
-            query_context = QueryContext(session.query(parent_mapper.entity))
+            try:
+                query_context = QueryContext(session.query(parent_mapper.entity))
+            except Exception as e:
+                logger.error(e)
 
             selectin_loader._load_for_path(
                 query_context,
