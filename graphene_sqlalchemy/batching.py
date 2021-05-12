@@ -1,14 +1,21 @@
+import logging
+
 import sqlalchemy
 from promise import dataloader, promise
 from sqlalchemy.orm import Session, strategies
 from sqlalchemy.orm.query import QueryContext
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 def get_batch_resolver(relationship_prop):
 
     # Cache this across `batch_load_fn` calls
     # This is so SQL string generation is cached under-the-hood via `bakery`
-    selectin_loader = strategies.SelectInLoader(relationship_prop, (('lazy', 'selectin'),))
+    selectin_loader = strategies.SelectInLoader(
+        relationship_prop, (("lazy", "selectin"),)
+    )
 
     class RelationshipLoader(dataloader.DataLoader):
         cache = False
@@ -52,6 +59,16 @@ def get_batch_resolver(relationship_prop):
             states = [(sqlalchemy.inspect(parent), True) for parent in parents]
 
             # For our purposes, the query_context will only used to get the session
+            logger.debug(
+                "+++ query_context: parent_mapper.entity = %s , type(parent_mapper) = %s",
+                parent_mapper.entity,
+                type(parent_mapper),
+            )
+            logger.debug(
+                "*** query_context: session.query = %s, type(session) = %s",
+                session.query(parent_mapper.entity),
+                type(session),
+            )
             query_context = QueryContext(session.query(parent_mapper.entity))
 
             selectin_loader._load_for_path(
@@ -62,7 +79,9 @@ def get_batch_resolver(relationship_prop):
                 child_mapper,
             )
 
-            return promise.Promise.resolve([getattr(parent, relationship_prop.key) for parent in parents])
+            return promise.Promise.resolve(
+                [getattr(parent, relationship_prop.key) for parent in parents]
+            )
 
     loader = RelationshipLoader()
 
